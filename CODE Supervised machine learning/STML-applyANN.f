@@ -10,20 +10,18 @@ cc *****************************************************************************
 
 	implicit none
 cc	Parameter of the neural network. nn: number of neurons in the fully connected hidden layer;
-cc	ni: number of inputs; L: LxL is the 2-d system size; mini: mini-patch size; epoch: size of the epoch;
+cc	ni: number of inputs; L: LxL is the 2-d system size; mini: mini-batch size; epoch: size of the epoch;
+cc	no: number of outputs; epoch: number of mini batches in an epoch;
 cc	ncount: the times eta is halved for more precise (slower) convergence;
 cc	nstop: the limit of ncount before the optimization terminates.
-cc	nnn: the total number of 'quantum' loops associated with a site.
+cc	nnn: the total number of neural networks included in the study.
 	integer nn, L, ni, no, nnn, inn
 	integer epoch, nepoch, ncount, nstop, nstep, mini
-	parameter (nn=50, L=516, ni=L*L, no=4, nnn=31)
+	parameter (nn=50, L=516, ni=L*L, no=4, nnn=82)
 	parameter (mini=50, epoch=100, nstop=3, nstep=10)
-
 	character*60 file1, file2, file3, file4, file5
-	character*60 file6, fil7, file8, file9
-
 cc	Hyper-parameters. eta: learning speed; lambda: L2 regulation; cost: cost function.
-	double precision eta, lambda, cost, maxx, minx
+	double precision eta, lambda, cost
 	parameter (lambda = 0.000001)
 cc	The network values, weights and biases.
 	double precision a1(nn), a2(no), delta1(nn), delta2(no), z1(nn)
@@ -31,25 +29,19 @@ cc	The network values, weights and biases.
 	double precision dw1(ni, nn), db1(nn), dw2(nn, no), db2(no)
 cc	The inputs. nval: size of validation data; nsap: size of training samples;
 cc	accumax controls step size - no improvement in nstep -> smaller step.
-	integer nval, nsap, accu, accustep, nfile, ifile
-	parameter (nval=78, nsap=0, nfile=0)
+	integer nval, nsap, accu, accustep, ifile
+	parameter (nval=78, nsap=0)
 	double precision accumax, pi, vx(ni,nsap+nval)
 	double precision nnoutput(no, nnn, nval)
-	integer cat(nsap+nval)
+cc	Neural output: output neuron #, ANN #, sample #.
 cc	Running parameters. Info, work2 and temp are for matrix inversion.
-	integer i, j, k, m, n, itemp, itemp2, info, io
-	double precision d1, d2, d, temp
-cc	Randam number parameters.
-	integer*4 timearray(3)
-cc	Initialize the random numbers.
-	call itime(timearray)
-	call SRAND(timearray(1)*3600+
-     &	timearray(2)*60+timearray(3))
+	integer i, j, k, m, n, itemp, itemp2, info
+	double precision d, temp
 	pi = 4.0 * atan(1.0)
 	eta = 0.01
 
 cc	Target file for network output.
-	file1='new/network_full_wd00nobia3.dat'
+	file1='new/network_full_wd00nobia.dat'
 
 	cc	20 samples of doping dependence.
 	file3='fix/dope00.csv'
@@ -105,10 +97,9 @@ cc	New doping dependence data.
 	print*, 'File ', file2, ' processed!'
 	close(20)
 
-
 	file4='fix/UD45KZrE000_6pixFC_zmap_516pix.csv'
 	file5='fix/UD45KZrE000_6pixFC_zmap_516pix_rot90.csv'
-cc	25 samples each.
+cc	25 energy dependenc samples for each direction.
 	do 25 ifile = 1, 25
 	file2 = file4
 	itemp = ifile * 6
@@ -120,7 +111,6 @@ cc	25 samples each.
 	print*, 'File ', file2, ' processed!'
 	close(20)
 25	continue
-
 	do 45 ifile = 1, 25
 	file2 = file5
 	itemp = ifile * 6
@@ -133,9 +123,11 @@ cc	25 samples each.
 	close(20)
 45	continue
 
+cc	File for the neural outputs.
 	open(24, file = 'nnoutputs.dat')
 
 	do 105 inn = 1, nnn
+cc	Load the inn'th neural network.
 	file5 = file1
         file5(20:20) = char(ichar(file5(20:20))+inn/10)
         file5(21:21) = char(ichar(file5(21:21))+inn-inn/10*10)
@@ -158,6 +150,7 @@ cc	25 samples each.
 	close(21)
 
 	print*, 'Network ', file5, ' processed!'
+cc	Loading complete. Now obtain the neural output for the nval test samples.
 
 	do 300 m=1, nval
 	do 305 i = 1, no
@@ -193,7 +186,7 @@ cc	25 samples each.
 
 105	continue
 
-cc	Analyze.
+cc	Analyze the statistics of the neural outputs.
 	open(23, file='nnaverage.dat')
 
 	do 505 itemp = 1, no
@@ -211,6 +204,7 @@ cc	Error of the mean.
 520	continue
 	d = sqrt(d/nnn/(nnn-1))
 	write(23, *), m, temp, d
+cc	Sample #, average, error of mean.
 505	continue
 
 	close(23)
